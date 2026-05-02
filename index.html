@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valiosa Imports PRO</title>
+    <style>
+        :root { --primary: #e91e63; --bg: #ffeef5; --success: #2ecc71; --warning: #f1c40f; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); padding: 15px; color: #333; }
+        .container { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        input, select { padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ddd; width: 100%; box-sizing: border-box; font-size: 16px; }
+        button { padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; font-size: 16px; }
+        button:hover { background: #c2185b; }
+        .flex-group { display: flex; gap: 10px; }
+        .card-calc { background: #fdfdfd; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #eee; border-left: 5px solid var(--primary); }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white; margin-left: 5px; }
+        .produto-item { display: flex; justify-content: space-between; align-items: center; background: #fafafa; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #eee; }
+        #comprovanteBox { 
+            background: #fff; 
+            border: 1px solid #ccc; 
+            padding: 25px; 
+            border-radius: 2px; 
+            white-space: pre-wrap; 
+            font-family: 'Courier New', Courier, monospace; 
+            color: #000;
+            line-height: 1.3;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            font-size: 14px;
+        }
+        .hidden { display: none; }
+        .btn-small { width: auto; padding: 8px 15px; margin: 0; }
+    </style>
+</head>
+<body>
+
+<div id="loginSection" class="container" style="max-width: 320px; margin: 60px auto; text-align: center;">
+    <h2 style="color: var(--primary);">🔐 Acesso Restrito</h2>
+    <input type="password" id="senhaInput" placeholder="Digite a senha">
+    <button onclick="entrar()">Entrar no Sistema</button>
+</div>
+
+<div id="app" class="hidden">
+    <h1 style="text-align: center; color: var(--primary);">Valiosa Imports 💕</h1>
+
+    <div class="container">
+        <h3>📦 Cadastro & Precificação</h3>
+        <input id="nome" placeholder="Nome do Produto">
+        <div class="flex-group">
+            <input id="custo" type="number" placeholder="Custo R$" oninput="calcularInteligente()">
+            <input id="extra" type="number" placeholder="Gastos (Sacola/Mimo)" oninput="calcularInteligente()">
+        </div>
+        <div class="card-calc" id="resultadoCalc">
+            <small>Preencha os custos para ver a análise de lucro...</small>
+        </div>
+        <input id="precoVenda" type="number" placeholder="Seu Preço de Venda R$" oninput="calcularInteligente()">
+        <input id="quantidade" type="number" placeholder="Quantidade em Estoque">
+        <button onclick="adicionarProduto()">Salvar no Estoque</button>
+    </div>
+
+    <div class="container">
+        <h3>👤 Dados da Cliente</h3>
+        <input id="clienteNome" placeholder="Nome da Cliente">
+        <input id="clienteWhats" type="tel" placeholder="WhatsApp (DDD + Número)">
+        <input id="clienteEndereco" placeholder="Endereço de Entrega">
+        <select id="pagamento">
+            <option value="">Forma de Pagamento</option>
+            <option>Pix</option>
+            <option>Dinheiro</option>
+            <option>Cartão de Crédito</option>
+            <option>Cartão de Débito</option>
+        </select>
+    </div>
+
+    <div class="container">
+        <h3>🏬 Estoque Atual</h3>
+        <div id="listaEstoque"></div>
+    </div>
+
+    <div class="container">
+        <h3>🧾 Recibo de Venda</h3>
+        <div id="comprovanteBox">Nenhuma venda realizada.</div>
+        <div class="flex-group">
+            <button onclick="copiarRecibo()" style="background: #555;">📋 Copiar Texto</button>
+            <button onclick="enviarWhatsApp()" style="background: #25d366;">📲 Enviar WhatsApp</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const SENHA_MESTRA = "1234";
+let produtos = JSON.parse(localStorage.getItem("valiosa_db_v5")) || [];
+let ultimoRecibo = "";
+let whatsAtual = "";
+
+function entrar() {
+    if(document.getElementById("senhaInput").value === SENHA_MESTRA) {
+        document.getElementById("loginSection").classList.add("hidden");
+        document.getElementById("app").classList.remove("hidden");
+        renderEstoque();
+    } else { alert("Senha incorreta!"); }
+}
+
+function calcularInteligente() {
+    const custo = +document.getElementById("custo").value || 0;
+    const extra = +document.getElementById("extra").value || 0;
+    const venda = +document.getElementById("precoVenda").value || 0;
+    const custoTotal = custo + extra;
+    const calcDiv = document.getElementById("resultadoCalc");
+    if (custoTotal === 0) return;
+    const sugestao = custoTotal * 1.6;
+    const lucro = venda - custoTotal;
+    let ticket = venda > 250 ? "ALTO" : (venda > 100 ? "MÉDIO" : "BAIXO");
+    const valePena = venda >= (custoTotal * 1.3);
+    calcDiv.innerHTML = `
+        💰 Lucro: R$ ${lucro.toFixed(2)} | Sugestão: R$ ${sugestao.toFixed(2)}<br>
+        📊 Ticket: <span class="badge" style="background:#666">${ticket}</span>
+        Vale a pena? <span class="badge" style="background:${valePena ? '#2ecc71' : '#e74c3c'}">${valePena ? 'SIM ✅' : 'REVISAR ⚠️'}</span>
+    `;
+}
+
+function adicionarProduto() {
+    const nome = document.getElementById("nome").value;
+    const custo = +document.getElementById("custo").value || 0;
+    const extra = +document.getElementById("extra").value || 0;
+    const preco = +document.getElementById("precoVenda").value || 0;
+    const qtd = +document.getElementById("quantidade").value || 0;
+    if(!nome || preco <= 0) return alert("Preencha o nome e preço!");
+    produtos.push({ nome, preco, quantidade: qtd, custoTotal: (custo + extra) });
+    localStorage.setItem("valiosa_db_v5", JSON.stringify(produtos));
+    renderEstoque();
+    ["nome", "custo", "extra", "precoVenda", "quantidade"].forEach(id => document.getElementById(id).value = "");
+}
+
+function vender(index) {
+    const p = produtos[index];
+    const cliente = document.getElementById("clienteNome").value;
+    const whats = document.getElementById("clienteWhats").value;
+    const endereco = document.getElementById("clienteEndereco").value;
+    const pgto = document.getElementById("pagamento").value;
+
+    if(!cliente || !pgto) return alert("Preencha nome da cliente e pagamento!");
+    if(p.quantidade <= 0) return alert("Estoque esgotado!");
+
+    p.quantidade--;
+    localStorage.setItem("valiosa_db_v5", JSON.stringify(produtos));
+    whatsAtual = whats;
+    const dataHora = new Date().toLocaleString('pt-BR');
+
+    ultimoRecibo = `Valiosa imports 💕
+--------------------------
+     RECIBO DE VENDA      
+--------------------------
+
+Nome: ${cliente}
+Endereço: ${endereco}
+Produto: ${p.nome}
+Total: R$ ${p.preco.toFixed(2)}
+Pagamento: ${pgto}
+Data e horário: ${dataHora}
+
+--------------------------
+Obrigada pela compra,
+seu pedido já está a caminho! 😍✨`;
+
+    document.getElementById("comprovanteBox").innerText = ultimoRecibo;
+    renderEstoque();
+}
+
+function renderEstoque() {
+    const div = document.getElementById("listaEstoque");
+    div.innerHTML = "";
+    produtos.forEach((p, i) => {
+        div.innerHTML += `
+            <div class="produto-item">
+                <div><strong>${p.nome}</strong><br><small>R$ ${p.preco.toFixed(2)} | Qtd: ${p.quantidade}</small></div>
+                <button class="btn-small" onclick="vender(${i})">Vender</button>
+            </div>`;
+    });
+}
+
+function copiarRecibo() {
+    if(!ultimoRecibo) return;
+    navigator.clipboard.writeText(ultimoRecibo);
+    alert("Copiado! 💕");
+}
+
+function enviarWhatsApp() {
+    if(!ultimoRecibo) return alert("Venda algo primeiro!");
+    if(!whatsAtual) return alert("Informe o WhatsApp!");
+    
+    const numLimpo = whatsAtual.replace(/\D/g, '');
+    // AQUI ESTÁ A CORREÇÃO: Usando o link universal wa.me
+    const url = `https://wa.me/${numLimpo}?text=${encodeURIComponent(ultimoRecibo)}`;
+    window.open(url, '_blank');
+}
+</script>
+</body>
+</html>
